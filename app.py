@@ -1,24 +1,20 @@
 from flask import Flask, request, jsonify, render_template
 import pdfplumber
 import docx
-import nltk
 import re
-
-from nltk.corpus import stopwords
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-import nltk
-from nltk.corpus import stopwords
+stop_words = {
+    "a", "an", "the", "and", "or", "but", "if", "while",
+    "is", "am", "are", "was", "were", "be", "been",
+    "to", "from", "in", "on", "at", "for", "with",
+    "about", "as", "by", "of", "this", "that",
+    "it", "its", "their", "them", "they"
+}
 
-try:
-    stop_words = set(stopwords.words("english"))
-except LookupError:
-    nltk.download('stopwords')
-    stop_words = set(stopwords.words("english"))
-    
 app = Flask(__name__)
 
 
