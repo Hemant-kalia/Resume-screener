@@ -10,8 +10,15 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-stop_words = set(stopwords.words("english"))
+import nltk
+from nltk.corpus import stopwords
 
+try:
+    stop_words = set(stopwords.words("english"))
+except LookupError:
+    nltk.download('stopwords')
+    stop_words = set(stopwords.words("english"))
+    
 app = Flask(__name__)
 
 
