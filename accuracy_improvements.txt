@@ -1,0 +1,111 @@
+================================================================================
+          GUIDE TO IMPROVING RESUME SCREENING ACCURACY
+================================================================================
+
+This document outlines the current limitations of the TF-IDF-based approach used 
+in this project and provides step-by-step instructions on how to improve the 
+accuracy of the candidate-job description matching results.
+
+--------------------------------------------------------------------------------
+1. UNDERSTANDING THE LIMITATIONS OF THE CURRENT APPROACH
+--------------------------------------------------------------------------------
+The current app.py implementation uses standard TF-IDF (Term Frequency-Inverse 
+Document Frequency) and Cosine Similarity:
+* Lexical Match Only: It only looks for exact word matches (e.g., "Developer" 
+  does not match "Development" or "Programmer").
+* Individual Fitting: It fits the TfidfVectorizer on only two documents at a time 
+  (the JD and the current resume). This defeats the purpose of IDF, which 
+  requires a large corpus of documents to weigh terms properly.
+* Basic Stopwords: Only 30 stopwords are filtered out.
+* No Semantic Context: It doesn't understand context or synonyms (e.g., "Frontend 
+  Developer" and "React Engineer" are treated as completely unrelated).
+
+--------------------------------------------------------------------------------
+2. STEP-BY-STEP INSTRUCTIONS TO IMPROVE ACCURACY
+--------------------------------------------------------------------------------
+
+Follow these instructions to enhance the accuracy of the matching algorithm.
+
+--- STEP A: FIX THE TF-IDF FITTING LOGIC (EASY) ---
+Currently, the vectorizer is fit separately for each resume:
+  documents = [processed_jd, processed_resume]
+  tfidf.fit_transform(documents)
+
+To fix this and calculate proper IDF weights:
+1. Collect the Job Description and ALL uploaded resumes into a single list.
+2. Fit the TfidfVectorizer on this entire corpus at once.
+3. Transform the JD and each resume individually using the fitted vectorizer.
+4. Calculate cosine similarity between the JD vector and each resume vector.
+
+--- STEP B: IMPLEMENT N-GRAMS AND LEMMATIZATION (MEDIUM) ---
+Exact unigram matching is too restrictive. Adding N-grams allows matching phrases 
+like "Machine Learning" or "Software Engineer". Lemmatization reduces words to 
+their root form.
+
+1. Install NLTK (Natural Language Toolkit):
+   pip install nltk
+2. Update the preprocessing function to use WordNetLemmatizer:
+   - Tokenize the text.
+   - Convert words to their base form (e.g., "running", "ran" -> "run").
+3. Configure TfidfVectorizer to support both single words and two-word phrases:
+   tfidf = TfidfVectorizer(ngram_range=(1, 2))
+
+--- STEP C: USE ADVANCED STOP WORDS (EASY) ---
+Expand the list of stop words to filter out common English words that do not 
+contribute to professional skill comparison.
+1. Use NLTK's built-in stop words list:
+   from nltk.corpus import stopwords
+   stop_words = set(stopwords.words('english'))
+
+--- STEP D: SEMANTIC EMBEDDINGS (HIGH ACCURACY / RECOMMENDED) ---
+Instead of relying on exact word matches, use semantic search with Sentence-BERT 
+(SBERT). This understands synonyms and context.
+
+1. Install Sentence-Transformers:
+   pip install sentence-transformers
+2. Download a lightweight, high-performance pre-trained model:
+   from sentence_transformers import SentenceTransformer, util
+   model = SentenceTransformer('all-MiniLM-L6-v2')
+3. Compute embeddings for the job description and the resumes:
+   jd_embedding = model.encode(job_description, convert_to_tensor=True)
+   resume_embedding = model.encode(resume_text, convert_to_tensor=True)
+4. Compute Cosine Similarity between the embeddings:
+   score = util.cos_sim(jd_embedding, resume_embedding).item()
+
+--- STEP E: SECTION-BASED WEIGHTING (ADVANCED) ---
+Resumes have different sections: Contact, Education, Work Experience, Skills. 
+Matching should give more weight to "Skills" and "Work Experience" than "Education".
+
+1. Parse the resume to identify sections using regex or rule-based matching:
+   - Identify header keywords (e.g., "Skills", "Technologies", "Experience").
+2. Extract text block under the "Skills" section.
+3. Calculate similarity scores separately for the full resume and the "Skills" 
+   section, then combine them using a weighted sum:
+   final_score = (0.6 * skills_score) + (0.4 * full_resume_score)
+
+--- STEP F: STRUCTURED ENTITY MATCHING (NER) ---
+Use Named Entity Recognition (NER) to extract specific certifications, degrees, 
+and years of experience.
+
+1. Install SpaCy:
+   pip install spacy
+   python -m spacy download en_core_web_sm
+2. Train/configure custom NER rules to extract:
+   - Technologies/Tools (e.g., Python, Docker, AWS)
+   - Experience duration (e.g., "3 years")
+   - Education level (e.g., "B.Tech", "M.S.")
+3. Implement strict boolean validation (e.g., if the JD requires a "PhD" and the 
+   resume only has "B.S.", penalize the score accordingly).
+
+--------------------------------------------------------------------------------
+3. RECOMMENDED PIPELINE ARCHITECTURE (SUMMARY)
+--------------------------------------------------------------------------------
+To achieve production-grade accuracy, transition the scoring pipeline from:
+  [Raw Text] -> [Basic Preprocess] -> [Single TF-IDF] -> [Cosine Similarity]
+To:
+  [Raw Text] -> [Sentence Transformer Embeddings] -> [Semantic Cosine Similarity]
+                    +
+  [Skills & Exp Extraction via NER] -> [Heuristic Matching (Score Adjustments)]
+                    =
+  [Hybrid Final Score (Ranked Output)]
+================================================================================
